@@ -1,7 +1,7 @@
 """
 Athena init
 """
-__all__ = ['active', 'nas', 'subspaces', 'utils']
+__all__ = ['active', 'nas', 'subspaces', 'utils', 'feature_map']
 __project__ = 'ATHENA'
 __title__ = "athena"
 __author__ = "Marco Tezzele, Francesco Romor"

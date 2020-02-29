@@ -33,7 +33,7 @@ class ActiveSubspaces(Subspaces):
                 method='exact',
                 nboot=100):
         """[summary]
-        
+
         Parameters
         ----------
         gradients : ndarray
@@ -83,14 +83,14 @@ class ActiveSubspaces(Subspaces):
         """
         Map the points in the active variable space to the original parameter
         space.
-        
+
         :param numpy.ndarray reduced_inputs: n_samples-by-n_params matrix that
             contains points in the space of active variables.
         :param int n_points: the number of points in the original parameter
             space that are returned that map to the given active variables.
             Defaults to 1.
         :return: (n_samples * n_points)-by-n_params matrix that contains points
-            in the original parameter space, 
+            in the original parameter space,
             (n_samples * n_points)-by-n_params matrix that contains integer
             indices. These indices identify which rows of the previous matrix
             (the full parameters) map to which rows of the active variables
@@ -112,19 +112,19 @@ class ActiveSubspaces(Subspaces):
 
     def _sample_inactive(self, reduced_input, n_points):
         """Sample inactive variables.
-        
+
         Sample values of the inactive variables for a fixed value of the active
         variables when the original variables are bounded by a hypercube.
         Parameters
         ----------
-        n_points: int 
+        n_points: int
             the number of inactive variable samples
-        reduced_input : ndarray 
+        reduced_input : ndarray
             the value of the active variables
         Returns
         -------
         Z : ndarray
-            n_points-by-(m-n) matrix that contains values of the inactive variable that 
+            n_points-by-(m-n) matrix that contains values of the inactive variable that
             correspond to the given `y`
         
         .. note::
@@ -152,15 +152,15 @@ class ActiveSubspaces(Subspaces):
         """A rejection sampling method for sampling the from a polytope.
         Parameters
         ----------
-        N : int 
+        N : int
             the number of inactive variable samples
-        y : ndarray 
+        y : ndarray
             the value of the active variables
-        W1 : ndarray 
-            m-by-n matrix that contains the eigenvector bases of the n-dimensional 
+        W1 : ndarray
+            m-by-n matrix that contains the eigenvector bases of the n-dimensional
             active subspace
         W2 : ndarray 
-            m-by-(m-n) matrix that contains the eigenvector bases of the 
+            m-by-(m-n) matrix that contains the eigenvector bases of the
             (m-n)-dimensional inactive subspace
         Returns
         -------
@@ -198,15 +198,15 @@ class ActiveSubspaces(Subspaces):
         """A hit and run method for sampling the inactive variables from a polytope.
         Parameters
         ----------
-        N : int 
+        N : int
             the number of inactive variable samples
-        y : ndarray 
+        y : ndarray
             the value of the active variables
-        W1 : ndarray 
-            m-by-n matrix that contains the eigenvector bases of the n-dimensional 
+        W1 : ndarray
+            m-by-n matrix that contains the eigenvector bases of the n-dimensional
             active subspace
-        W2 : ndarray 
-            m-by-(m-n) matrix that contains the eigenvector bases of the 
+        W2 : ndarray
+            m-by-(m-n) matrix that contains the eigenvector bases of the
             (m-n)-dimensional inactive subspace
         Returns
         -------
