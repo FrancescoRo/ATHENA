@@ -31,7 +31,7 @@ class ActiveSubspaces(Subspaces):
                 gradients=None,
                 weights=None,
                 method='exact',
-                nboot=100):
+                nboot=None):
         """[summary]
 
         Parameters
@@ -56,10 +56,12 @@ class ActiveSubspaces(Subspaces):
                 weights = initialize_weights(gradients)
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
                 gradients=gradients, weights=weights, method=method)
-            self._compute_bootstrap_ranges(gradients,
-                                           weights,
-                                           method=method,
-                                           nboot=nboot)
+
+            if nboot is not None:
+                self._compute_bootstrap_ranges(gradients,
+                                               weights,
+                                               method=method,
+                                               nboot=nboot)
 
         # estimate active subspace with local linear models.
         if method == 'local':
@@ -74,10 +76,12 @@ class ActiveSubspaces(Subspaces):
                 weights = initialize_weights(gradients)
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
                 gradients=gradients, weights=weights, method=method)
-            self._compute_bootstrap_ranges(gradients,
-                                           weights,
-                                           method=method,
-                                           nboot=nboot)
+
+            if nboot is not None:
+                self._compute_bootstrap_ranges(gradients,
+                                               weights,
+                                               method=method,
+                                               nboot=nboot)
 
     def backward(self, reduced_inputs, n_points=1):
         """

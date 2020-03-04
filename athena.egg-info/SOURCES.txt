@@ -2,6 +2,9 @@ README.md
 setup.py
 athena/__init__.py
 athena/active.py
+athena/cross_validation.py
+athena/feature_map.py
+athena/gaussian_processes.py
 athena/nas.py
 athena/subspaces.py
 athena/utils.py
