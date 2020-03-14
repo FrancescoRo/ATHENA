@@ -201,6 +201,65 @@ class Subspaces(object):
         else:
             plt.show()
 
+    def plot_eigenvectors(self,
+                          n_evects=None,
+                          dim_cut=None,
+                          filename=None,
+                          figsize=None,
+                          title='',
+                          labels=''):
+        """
+        Plot the eigenvalues.
+        
+        :param str filename: if specified, the plot is saved at `filename`.
+        :param tuple(int,int) figsize: tuple in inches defining the figure
+            size. Default is (8, 8).
+        :param str title: title of the plot.
+        :raises: ValueError
+
+        .. warning::
+            `self.compute` has to be called in advance.
+        """
+        if self.evects is None:
+            raise ValueError('The eigenvectors have not been computed.'
+                             'You have to perform the compute method.')
+        if n_evects is None:
+            n_evects = self.dim
+        if n_evects > self.evects.shape[0]:
+            raise ValueError('Invalid number of eigenvectors to plot.')
+        if figsize is None:
+            figsize = (4 * n_evects, 8)
+        if dim_cut is None:
+            dim_cut = self.evects.shape[0]
+
+        fig, axes = plt.subplots(n_evects, 1, figsize=figsize)
+        fig.suptitle(title)
+
+        for i in range(n_evects):
+            axes[i].plot(range(1, dim_cut + 1),
+                         self.evects[:dim_cut + 1, i],
+                         'ko-',
+                         markersize=8,
+                         linewidth=2)
+
+            if labels is not '':
+                axes[i].set_xticks(range(1, dim_cut + 1))
+                axes[i].set_xticklabels(labels)
+                axes[i].margins(0.5)
+            else:
+                axes[i].set_xticks(range(1, dim_cut + 1))
+                axes[i].set_xlabel('Components')
+
+            axes[i].set_ylabel('Active eigenvector {}'.format(i + 1))
+            axes[i].grid(linestyle='dotted')
+            axes[i].axis([0, 1 + dim_cut, -1, 1])
+
+        if filename:
+            plt.savefig(filename)
+        else:
+            fig.tight_layout()
+            plt.show()
+
     def plot_sufficient_summary(self,
                                 inputs,
                                 outputs,

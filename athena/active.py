@@ -8,7 +8,6 @@ from .utils import (Normalizer, initialize_weights, linear_program_ineq,
 
 class ActiveSubspaces(Subspaces):
     """Active Subspaces class
-    
     [description]
     """
     def __init__(self):
@@ -130,7 +129,7 @@ class ActiveSubspaces(Subspaces):
         Z : ndarray
             n_points-by-(m-n) matrix that contains values of the inactive variable that
             correspond to the given `y`
-        
+
         .. note::
             The trick here is to sample the inactive variables z so that
             -1 <= W1*y + W2*z <= 1,
@@ -163,14 +162,14 @@ class ActiveSubspaces(Subspaces):
         W1 : ndarray
             m-by-n matrix that contains the eigenvector bases of the n-dimensional
             active subspace
-        W2 : ndarray 
+        W2 : ndarray
             m-by-(m-n) matrix that contains the eigenvector bases of the
             (m-n)-dimensional inactive subspace
         Returns
         -------
         Z : ndarray
-            N-by-(m-n) matrix that contains values of the inactive variable that 
-            correspond to the given `y`    
+            N-by-(m-n) matrix that contains values of the inactive variable that
+            correspond to the given `y`
         """
         m, n = self.W1.shape
         inactive_dim = m - n
@@ -215,8 +214,8 @@ class ActiveSubspaces(Subspaces):
         Returns
         -------
         Z : ndarray
-            N-by-(m-n) matrix that contains values of the inactive variable that 
-            correspond to the given `y`    
+            N-by-(m-n) matrix that contains values of the inactive variable that
+            correspond to the given `y`
         """
         m, n = self.W1.shape
         inactive_dim = m - n

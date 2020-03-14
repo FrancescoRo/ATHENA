@@ -4,11 +4,11 @@
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from .subspaces import Subspaces
-from .utils import (Normalizer, initialize_weights, sort_eigpairs)
-from .feature_map import (FeatureMap, ProjectionMap)
-from .tools import clock
 from scipy import optimize
+from functools import partial
+from .subspaces import Subspaces
+from .utils import (initialize_weights, sort_eigpairs, local_linear_gradients)
+from .tools import clock
 
 DEBUG = False
 
@@ -42,10 +42,9 @@ class NonlinearActiveSubspaces(Subspaces):
     def forward(self, inputs):
         """
         Map full variables to active and inactive variables.
-        
         Points in the original input space are mapped to the active and
         inactive subspace.
-        
+
         :param numpy.ndarray inputs: array n_samples-by-n_params containing
             the points in the original parameter space.
         :return: array n_samples-by-active_dim containing the mapped active
@@ -54,7 +53,7 @@ class NonlinearActiveSubspaces(Subspaces):
         :rtype: numpy.ndarray, numpy.ndarray
         """
         features = np.array([
-            self.feature_map.map(inputs[i, :]) for i in range(inputs.shape[0])
+            self.feature_map.fmap(inputs[i, :]) for i in range(inputs.shape[0])
         ])
         active = np.dot(features, self.W1)
         inactive = np.dot(features, self.W2)
@@ -72,16 +71,16 @@ class NonlinearActiveSubspaces(Subspaces):
         M, m = inputs.shape
         feature_map.compute(hyperparams)
 
-        #Initialize Jacobian for each input
+        # Initialize Jacobian for each input
         jacobian = np.array(
             [feature_map.jacobian(inputs[i, :]) for i in range(M)])
-        #Compute pseudo gradients
+        # Compute pseudo gradients
         pseudo_gradients = np.array([
             np.linalg.lstsq(jacobian[i, :, :].T, gradients[i, :].T,
                             rcond=None)[0] for i in range(M)
         ])
-        #Compute features
-        features = np.array([feature_map.map(inputs[i, :]) for i in range(M)])
+        # Compute features
+        features = np.array([feature_map.fmap(inputs[i, :]) for i in range(M)])
         return pseudo_gradients, features
 
     def compute(self,
@@ -123,7 +122,7 @@ class NonlinearActiveSubspaces(Subspaces):
                 self.n_features = n_features
 
             if feature_map is None:
-                #default spectral measure is Gaussian
+                # default spectral measure is Gaussian
                 raise ValueError('feature_map argument is None.')
             else:
                 self.feature_map = feature_map
@@ -135,8 +134,8 @@ class NonlinearActiveSubspaces(Subspaces):
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
                 gradients=self.pseudo_gradients, weights=weights, method=method)
 
-            if nboot is not None:
-                self._compute_bootstrap_ranges(psuedo_gradients,
+            if nboot:
+                self._compute_bootstrap_ranges(self.psuedo_gradients,
                                                weights,
                                                method=method,
                                                nboot=nboot)
@@ -159,7 +158,7 @@ class NonlinearActiveSubspaces(Subspaces):
                 self.n_features = n_features
 
             if feature_map is None:
-                #default spectral measure is Gaussian
+                # default spectral measure is Gaussian
                 raise ValueError('feature_map argument is None.')
             else:
                 self.feature_map = feature_map
@@ -171,37 +170,37 @@ class NonlinearActiveSubspaces(Subspaces):
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
                 gradients=self.pseudo_gradients, weights=weights, method=method)
 
-            if nboot is not None:
-                self._compute_bootstrap_ranges(psuedo_gradients,
+            if nboot:
+                self._compute_bootstrap_ranges(self.psuedo_gradients,
                                                weights,
                                                method=method,
                                                nboot=nboot)
 
 
-def tune(ranges=None, plot=None, opt='brute', **kw):
+def tune(ranges, plot=None, opt='brute', **kw):
     """Optimize the parameters of the given distribution,
        with respect to the RRMSE. The parameters are optimized with
        logarithmic grid-search.
     """
 
-    #List that collects the parameters evaluted in the optimization in the
-    #first component and the corresponding RRMSE in the second.
+    # List that collects the parameters evaluted in the optimization in the
+    # first component and the corresponding RRMSE in the second.
     data = [[], []]
     n_params = len(ranges)
 
-    #function to optimize
-    fun = lambda hyperparams: Average_NRMSE(10**hyperparams, data, **kw)
+    # function to optimize
+    fun = partial(Average_RRMSE, data=data, **kw)
 
-    #TODO: provisional design
+    # TODO: provisional design
     if opt == 'brute':
-        #logarithmic grid search
+        # logarithmic grid search
         res, val, grid, eval_grid = optimize.brute(fun,
                                                    ranges,
                                                    finish=None,
                                                    full_output=True)
         res = 10**res
     elif opt == 'differential_evolution':
-        opt_res = optimize.differential_evolution(func,
+        opt_res = optimize.differential_evolution(fun,
                                                   ranges,
                                                   maxiter=30,
                                                   disp=True,
@@ -220,8 +219,8 @@ def tune(ranges=None, plot=None, opt='brute', **kw):
         res = 10**opt_res.x
         val = opt_res.fun
 
-    #plot to show dependance of NRMSE from the parameters
-    if plot is True:
+    # plot to show dependance of RRMSE from the parameters
+    if plot:
         # plt.plot(grid, eval_grid)
         # plt.grid(True, linestyle='dotted')
         input = np.log10(np.array(data[0][1:]))
@@ -231,7 +230,7 @@ def tune(ranges=None, plot=None, opt='brute', **kw):
             plt.plot(input, output)
             plt.grid(True, linestyle='dotted')
             plt.xlabel("parameter")
-            plt.ylabel("NRMSE")
+            plt.ylabel("RRMSE")
 
         elif n_params == 2:
             fig = plt.figure()
@@ -247,6 +246,8 @@ def tune(ranges=None, plot=None, opt='brute', **kw):
                                  title="Best {}".format(res))
             ax.scatter(input[:, 1], input[:, 2], output)
         plt.show()
+
+    kw['feature_map'].set_tuned()
     return res, val
 
 
@@ -254,15 +255,14 @@ from .cross_validation import Estimator, cross_validation
 
 
 @clock(activate=DEBUG, fmt='[{elapsed:0.8f}s] {name}\n')
-def Average_NRMSE(hyperparams, data, inputs, outputs, gradients, n_features,
+def Average_RRMSE(hyperparams, data, inputs, outputs, gradients, n_features,
                   feature_map, weights, method, kernel, gp_dimension, folds):
     """Function to optimize."""
-
-    GPR_NAS = Estimator(hyperparams, 'NAS', n_features, feature_map, weights,
-                        method, kernel, gp_dimension)
-
+    if hyperparams:
+        hyperparams = 10**hyperparams
+    GPR_NAS = Estimator(hyperparams, 'NAS', n_features, weights, method, kernel, gp_dimension)
+    GPR_NAS.set_feature_map(feature_map)
     mean, std = cross_validation(inputs, outputs, gradients, GPR_NAS, folds)
-
     print("params {2} mean {0}, std {1}".format(mean, std, hyperparams))
     data[0].append(hyperparams)
     data[1].append(mean)
