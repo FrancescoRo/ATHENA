@@ -54,12 +54,12 @@ class ProjectionMap(FeatureMap):
         """doc"""
         if self._tuned:
             return self._fmap(x,
-                          self._best_matrix,
-                          self._best_params,
-                          n_features=self.n_features,
-                          n_params=self.n_params,
-                          input_dim=self.input_dim,
-                          **self.kw)
+                              self._best_matrix,
+                              self._best_params,
+                              n_features=self.n_features,
+                              n_params=self.n_params,
+                              input_dim=self.input_dim,
+                              **self.kw)
         else:
             return self._fmap(x,
                               self.matrix,
@@ -73,30 +73,30 @@ class ProjectionMap(FeatureMap):
         if self._tuned:
             print(self._best_matrix)
             return self._jacobian(x,
-                              self._best_matrix,
-                              self._best_params,
-                              n_features=self.n_features,
-                              n_params=self.n_params,
-                              input_dim=self.input_dim,
-                              **self.kw)
+                                  self._best_matrix,
+                                  self._best_params,
+                                  n_features=self.n_features,
+                                  n_params=self.n_params,
+                                  input_dim=self.input_dim,
+                                  **self.kw)
         else:
             return self._jacobian(x,
-                              self.matrix,
-                              self.params,
-                              n_features=self.n_features,
-                              n_params=self.n_params,
-                              input_dim=self.input_dim,
-                              **self.kw)
+                                  self.matrix,
+                                  self.params,
+                                  n_features=self.n_features,
+                                  n_params=self.n_params,
+                                  input_dim=self.input_dim,
+                                  **self.kw)
 
     def compute(self, params):
         if self._tuned is False:
             self.params = params
             self.matrix = self.set_projection_matrix(self.distr, self.input_dim,
-                                                     self.n_features, self.n_params,
-                                                     params)
+                                                     self.n_features,
+                                                     self.n_params, params)
 
     def set_best(self, score):
-        self.score+=1
+        self.score += 1
         #self.score = score
         self._best_matrix = self.matrix
         self._best_params = self.params
@@ -110,7 +110,8 @@ class ProjectionMap(FeatureMap):
            map. Several spectral measures can be chosen."""
 
         if distr == np.random.multivariate_normal:
-            pr_matrix = distr(np.zeros(m), params * np.diag(np.ones(m)), (n_features))
+            pr_matrix = distr(np.zeros(m), params * np.diag(np.ones(m)),
+                              (n_features))
         elif distr == np.random.normal:
             pr_matrix = distr(0, params[0], (n_features, m))
         elif distr == np.random.dirichlet:
@@ -126,7 +127,10 @@ class ProjectionMap(FeatureMap):
         elif distr == 'dirichlet':
             pr_matrix = dirichlet.rvs(params, size=n_features)
         else:
-            pr_matrix = distr(params, m=m, n_features=n_features, n_params=n_params)
+            pr_matrix = distr(params,
+                              m=m,
+                              n_features=n_features,
+                              n_params=n_params)
 
         return pr_matrix
 

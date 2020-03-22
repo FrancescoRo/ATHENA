@@ -114,3 +114,10 @@ class TestUtils(TestCase):
         ss = Subspaces()
         with self.assertRaises(ValueError):
             ss.plot_eigenvalues(figsize=(7, 7), title='Eigenvalues')
+
+    def test_plot_eigenvectors(self):
+        ss = Subspaces()
+        with self.assertRaises(ValueError):
+            ss.plot_eigenvectors(n_evects=2,
+                                 figsize=(7, 7),
+                                 title='Eigenvectors')

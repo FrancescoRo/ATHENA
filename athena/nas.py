@@ -260,7 +260,8 @@ def Average_RRMSE(hyperparams, data, inputs, outputs, gradients, n_features,
     """Function to optimize."""
     if hyperparams:
         hyperparams = 10**hyperparams
-    GPR_NAS = Estimator(hyperparams, 'NAS', n_features, weights, method, kernel, gp_dimension)
+    GPR_NAS = Estimator(hyperparams, 'NAS', n_features, weights, method, kernel,
+                        gp_dimension)
     GPR_NAS.set_feature_map(feature_map)
     mean, std = cross_validation(inputs, outputs, gradients, GPR_NAS, folds)
     print("params {2} mean {0}, std {1}".format(mean, std, hyperparams))

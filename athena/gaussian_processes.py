@@ -6,6 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import GPy
 
+
 def GPR(x, f, n_train=None, kernel=None, plot=False):
     """Execute Gaussian processes regression for input data x and targets f.
 

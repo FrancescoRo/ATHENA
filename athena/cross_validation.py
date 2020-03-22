@@ -24,7 +24,7 @@ def cross_validation(inputs=None,
     return scores.mean(), scores.std()
 
 
-class Estimator():
+class Estimator(:
     """
     Estimator needed by sklearn cross-validation.
     See sklearn.model_selection.cross_val_score man.

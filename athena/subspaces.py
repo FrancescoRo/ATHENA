@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 class Subspaces(object):
     """Active Subspaces base class
-    
+
     [description]
     """
     def __init__(self):
@@ -21,31 +21,21 @@ class Subspaces(object):
 
     def _compute_bootstrap_ranges(self, gradients, weights, method, nboot=100):
         """Compute bootstrap ranges for eigenvalues and subspaces.
-        
+    
         An implementation of the nonparametric bootstrap that we use in 
         conjunction with the subspace estimation methods to estimate the errors in 
         the eigenvalues and subspaces.
         
-        Parameters
-        ----------
-        gradients : ndarray
-            M-by-m matrix of gradient samples
-        weights : ndarray
-            M-by-1 vector of weights corresponding to samples
-        nboot : int, optional
-            number of bootstrap samples (default 100)
-            
-        Returns
-        -------
-        e_br : ndarray
-            m-by-2 matrix, first column contains bootstrap lower bound on 
+        param numpy.ndarray gradients: M-by-m matrix of gradient samples.
+        param numpy.ndarray weights: M-by-1 vector of weights corresponding to samples.
+        param int nboot: number of bootstrap samples (default 100).
+        return: array e_br is a m-by-2 matrix, first column contains bootstrap lower bound on 
             eigenvalues, second column contains bootstrap upper bound on 
-            eigenvalues
-        sub_br : ndarray
-            (m-1)-by-3 matrix, first column contains bootstrap lower bound on 
+            eigenvalues; array sub_br is a (m-1)-by-3 matrix, first column contains bootstrap lower bound on 
             estimated subspace error, second column contains estimated mean of
             subspace error (a reasonable subspace error estimate), third column
-            contains estimated upper bound on subspace error    
+            contains estimated upper bound on subspace error.
+        rtype: numpy.ndarray, numpy.ndarray
         """
         n_pars = gradients.shape[1]
         e_boot = np.zeros((n_pars, nboot))
@@ -124,7 +114,7 @@ class Subspaces(object):
         Abstract method to find points in full space that map to reduced
         variable points.
         Not implemented, it has to be implemented in subclasses.
-        
+
         :param numpy.ndarray reduced_inputs: n_samples-by-n_params matrix that
             contains points in the space of active variables.
         :param int n_points: the number of points in the original parameter
@@ -137,7 +127,7 @@ class Subspaces(object):
     def partition(self, dim):
         """
         Partition the eigenvectors to define the active and inactive subspaces.
-        
+
         :param int dim: dimension of the active subspace.
         :raises: TypeError, ValueError
         """
@@ -203,7 +193,6 @@ class Subspaces(object):
 
     def plot_eigenvectors(self,
                           n_evects=None,
-                          dim_cut=None,
                           filename=None,
                           figsize=None,
                           title='',
@@ -211,10 +200,12 @@ class Subspaces(object):
         """
         Plot the eigenvalues.
         
+        :param int n_evects: number of eigenvectors to plot.
         :param str filename: if specified, the plot is saved at `filename`.
         :param tuple(int,int) figsize: tuple in inches defining the figure
             size. Default is (8, 8).
         :param str title: title of the plot.
+        :param str labels: labels for the components of the eigenvectors.
         :raises: ValueError
 
         .. warning::
@@ -229,30 +220,29 @@ class Subspaces(object):
             raise ValueError('Invalid number of eigenvectors to plot.')
         if figsize is None:
             figsize = (4 * n_evects, 8)
-        if dim_cut is None:
-            dim_cut = self.evects.shape[0]
 
+        m = self.evects.shape[0]
         fig, axes = plt.subplots(n_evects, 1, figsize=figsize)
         fig.suptitle(title)
 
         for i in range(n_evects):
-            axes[i].plot(range(1, dim_cut + 1),
-                         self.evects[:dim_cut + 1, i],
+            axes[i].plot(range(1, m + 1),
+                         self.evects[:m + 1, i],
                          'ko-',
                          markersize=8,
                          linewidth=2)
 
             if labels is not '':
-                axes[i].set_xticks(range(1, dim_cut + 1))
+                axes[i].set_xticks(range(1, m + 1))
                 axes[i].set_xticklabels(labels)
                 axes[i].margins(0.5)
             else:
-                axes[i].set_xticks(range(1, dim_cut + 1))
+                axes[i].set_xticks(range(1, m + 1))
                 axes[i].set_xlabel('Components')
 
             axes[i].set_ylabel('Active eigenvector {}'.format(i + 1))
             axes[i].grid(linestyle='dotted')
-            axes[i].axis([0, 1 + dim_cut, -1, 1])
+            axes[i].axis([0, 1 + m, -1, 1])
 
         if filename:
             plt.savefig(filename)
@@ -268,7 +258,7 @@ class Subspaces(object):
                                 title=''):
         """
         Plot the sufficient summary.
-        
+
         :param numpy.ndarray inputs: array n_samples-by-n_params containing
             the points in the full input space.
         :param numpy.ndarray outputs: array n_samples-by-1 containing the
@@ -280,7 +270,7 @@ class Subspaces(object):
         :raises: ValueError
 
         .. warning::
-            `self.partition` has to be called in advance. 
+            `self.partition` has to be called in advance.
 
             Plot only available for partitions up to dimension 2.
         """
@@ -320,7 +310,7 @@ class Subspaces(object):
         else:
             raise ValueError(
                 'Sufficient summary plots cannot be made in more than 2 ' \
-                'dimensions.'
+                                'dimensions.'
             )
 
         plt.grid(linestyle='dotted')
