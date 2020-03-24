@@ -3,9 +3,6 @@
 [description]
 """
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy import optimize
-from functools import partial
 from .subspaces import Subspaces
 from .utils import (initialize_weights, sort_eigpairs, local_linear_gradients)
 from .tools import clock
@@ -27,11 +24,7 @@ class NonlinearActiveSubspaces(Subspaces):
 
     @staticmethod
     @clock(activate=DEBUG)
-    def _build_decompose_cov_matrix(inputs=None,
-                                    outputs=None,
-                                    gradients=None,
-                                    weights=None,
-                                    method=None):
+    def _build_decompose_cov_matrix(gradients=None, weights=None, method=None):
 
         if method == 'exact' or method == 'local':
             cov_matrix = gradients.T.dot(gradients * weights)
@@ -43,7 +36,7 @@ class NonlinearActiveSubspaces(Subspaces):
         """
         Map full variables to active and inactive variables.
         Points in the original input space are mapped to the active and
-        inactive subspace.
+        inactive non-linear subspace.
 
         :param numpy.ndarray inputs: array n_samples-by-n_params containing
             the points in the original parameter space.
@@ -59,17 +52,14 @@ class NonlinearActiveSubspaces(Subspaces):
         inactive = np.dot(features, self.W2)
         return active, inactive
 
+    def backward(self, reduced_inputs, n_points):
+        pass
+
     @staticmethod
     @clock(activate=DEBUG)
-    def _reparametrize(inputs=None,
-                       outputs=None,
-                       gradients=None,
-                       n_features=None,
-                       feature_map=None,
-                       hyperparams=None):
+    def _reparametrize(inputs=None, gradients=None, feature_map=None):
 
-        M, m = inputs.shape
-        feature_map.compute(hyperparams)
+        M = inputs.shape[0]
 
         # Initialize Jacobian for each input
         jacobian = np.array(
@@ -84,7 +74,6 @@ class NonlinearActiveSubspaces(Subspaces):
         return pseudo_gradients, features
 
     def compute(self,
-                hyperparams=None,
                 inputs=None,
                 outputs=None,
                 gradients=None,
@@ -128,11 +117,12 @@ class NonlinearActiveSubspaces(Subspaces):
                 self.feature_map = feature_map
 
             self.pseudo_gradients, self.features = self._reparametrize(
-                inputs, outputs, gradients, self.n_features, self.feature_map,
-                hyperparams)
+                inputs, gradients, self.feature_map)
 
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
-                gradients=self.pseudo_gradients, weights=weights, method=method)
+                gradients=self.pseudo_gradients,
+                weights=weights,
+                method=method)
 
             if nboot:
                 self._compute_bootstrap_ranges(self.psuedo_gradients,
@@ -164,108 +154,15 @@ class NonlinearActiveSubspaces(Subspaces):
                 self.feature_map = feature_map
 
             self.pseudo_gradients, self.features = self._reparametrize(
-                inputs, gradients, self.n_features, self.feature_map,
-                *hyperparams)
+                inputs, gradients, self.feature_map)
 
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
-                gradients=self.pseudo_gradients, weights=weights, method=method)
+                gradients=self.pseudo_gradients,
+                weights=weights,
+                method=method)
 
             if nboot:
                 self._compute_bootstrap_ranges(self.psuedo_gradients,
                                                weights,
                                                method=method,
                                                nboot=nboot)
-
-
-def tune(ranges, plot=None, opt='brute', **kw):
-    """Optimize the parameters of the given distribution,
-       with respect to the RRMSE. The parameters are optimized with
-       logarithmic grid-search.
-    """
-
-    # List that collects the parameters evaluted in the optimization in the
-    # first component and the corresponding RRMSE in the second.
-    data = [[], []]
-    n_params = len(ranges)
-
-    # function to optimize
-    fun = partial(Average_RRMSE, data=data, **kw)
-
-    # TODO: provisional design
-    if opt == 'brute':
-        # logarithmic grid search
-        res, val, grid, eval_grid = optimize.brute(fun,
-                                                   ranges,
-                                                   finish=None,
-                                                   full_output=True)
-        res = 10**res
-    elif opt == 'differential_evolution':
-        opt_res = optimize.differential_evolution(fun,
-                                                  ranges,
-                                                  maxiter=30,
-                                                  disp=True,
-                                                  tol=0.01)
-        res = 10**opt_res.x
-        val = opt_res.fun
-    elif opt == 'shgo':
-        opt_res = optimize.shgo(fun, ranges)
-        res = 10**opt_res.x
-        val = opt_res.fun
-    elif opt == 'dual_annealing':
-        opt_res = optimize.dual_annealing(fun,
-                                          ranges,
-                                          maxiter=30,
-                                          no_local_search=True)
-        res = 10**opt_res.x
-        val = opt_res.fun
-
-    # plot to show dependance of RRMSE from the parameters
-    if plot:
-        # plt.plot(grid, eval_grid)
-        # plt.grid(True, linestyle='dotted')
-        input = np.log10(np.array(data[0][1:]))
-        output = np.array(data[1][1:])
-
-        if n_params == 1:
-            plt.plot(input, output)
-            plt.grid(True, linestyle='dotted')
-            plt.xlabel("parameter")
-            plt.ylabel("RRMSE")
-
-        elif n_params == 2:
-            fig = plt.figure()
-            plt.tricontourf(input[:, 0], input[:, 1], output, 15)
-            plt.colorbar()
-            plt.xlabel("first_hyperparameter")
-            plt.ylabel("second_hyperparameter")
-
-        elif n_params == 3:
-            fig = plt.figure()
-            ax = fig.add_subplot(111,
-                                 projection='3d',
-                                 title="Best {}".format(res))
-            ax.scatter(input[:, 1], input[:, 2], output)
-        plt.show()
-
-    kw['feature_map'].set_tuned()
-    return res, val
-
-
-from .cross_validation import Estimator, cross_validation
-
-
-@clock(activate=DEBUG, fmt='[{elapsed:0.8f}s] {name}\n')
-def Average_RRMSE(hyperparams, data, inputs, outputs, gradients, n_features,
-                  feature_map, weights, method, kernel, gp_dimension, folds):
-    """Function to optimize."""
-    if hyperparams:
-        hyperparams = 10**hyperparams
-    GPR_NAS = Estimator(hyperparams, 'NAS', n_features, weights, method, kernel,
-                        gp_dimension)
-    GPR_NAS.set_feature_map(feature_map)
-    mean, std = cross_validation(inputs, outputs, gradients, GPR_NAS, folds)
-    print("params {2} mean {0}, std {1}".format(mean, std, hyperparams))
-    data[0].append(hyperparams)
-    data[1].append(mean)
-
-    return mean

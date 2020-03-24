@@ -2,8 +2,7 @@
 Athena init
 """
 __all__ = [
-    'active', 'nas', 'subspaces', 'utils', 'feature_map', 'cross_validation',
-    'gaussian_processes', 'tools'
+    'active', 'nas', 'subspaces', 'utils', 'feature_map', 'tuning', 'tools'
 ]
 __project__ = 'ATHENA'
 __title__ = "athena"
@@ -20,8 +19,7 @@ from .nas import NonlinearActiveSubspaces
 from .subspaces import Subspaces
 from .utils import (Normalizer, initialize_weights, linear_program_ineq,
                     local_linear_gradients, sort_eigpairs)
-from .cross_validation import (cross_validation, Estimator)
+from .tuning import (cross_validation, Estimator)
 from .feature_map import (FeatureMap, ProjectionMap)
-from .gaussian_processes import GPR
 
 from .tools import clock

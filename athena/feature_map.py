@@ -33,8 +33,8 @@ class FeatureMap():
 
 class ProjectionMap(FeatureMap):
     """doc"""
-    def __init__(self, feature_map, feature_map_jac, distr, n_params, input_dim,
-                 n_features, **kw):
+    def __init__(self, feature_map, feature_map_jac, distr, n_params,
+                 input_dim, n_features, **kw):
         super().__init__()
         self.params = None
         self.matrix = None
@@ -47,12 +47,13 @@ class ProjectionMap(FeatureMap):
         self.kw = kw
         self._best_matrix = None
         self._best_params = None
-        self.score = 0
-        self._tuned = False
+        self.score = 1
+        self.tuned = False
 
     def fmap(self, x):
         """doc"""
-        if self._tuned:
+        if self.tuned:
+            print("CHECK MAP")
             return self._fmap(x,
                               self._best_matrix,
                               self._best_params,
@@ -70,8 +71,8 @@ class ProjectionMap(FeatureMap):
                               **self.kw)
 
     def jacobian(self, x):
-        if self._tuned:
-            print(self._best_matrix)
+        if self.tuned:
+            print("CHECK JACOBIAN")
             return self._jacobian(x,
                                   self._best_matrix,
                                   self._best_params,
@@ -89,20 +90,24 @@ class ProjectionMap(FeatureMap):
                                   **self.kw)
 
     def compute(self, params):
-        if self._tuned is False:
+        if self.tuned is False:
             self.params = params
-            self.matrix = self.set_projection_matrix(self.distr, self.input_dim,
+            self.matrix = self.set_projection_matrix(self.distr,
+                                                     self.input_dim,
                                                      self.n_features,
                                                      self.n_params, params)
 
     def set_best(self, score):
-        self.score += 1
-        #self.score = score
-        self._best_matrix = self.matrix
-        self._best_params = self.params
+        if self.score > score:
+            self.score = score
+            self._best_matrix = self.matrix
+            self._best_params = self.params
 
     def set_tuned(self):
-        self._tuned = True
+        self.tuned = True
+
+    def get_best(self):
+        return self._best_matrix, self._best_params
 
     @staticmethod
     def set_projection_matrix(distr, m, n_features, n_params, params):
@@ -143,12 +148,14 @@ def Hadamard(M, W, **kw):  # (nfeatures, (nfeatures, m))
 
 def RFF_map(x, W, params, **kw):
     """doc"""
+    print(kw, W.shape, x.shape)
     return np.sqrt(
         2 / kw['n_features']) * kw['sigma_f'] * np.cos(W.dot(x) + kw['b'])
 
 
 def RFF_jac(x, W, params, **kw):
     """doc"""
+    print(kw)
     return Hadamard(
         np.sqrt(2 / kw['n_features']) * kw['sigma_f'] * (-1) *
         np.sin(W.dot(x) + kw['b']), W, **kw)
@@ -171,5 +178,5 @@ def asin_map(x, W, params, **kw):
 
 def asin_jac(x, W, params, **kw):
     """doc"""
-    return Hadamard((-1) * kw['sigma_f'] / np.sqrt(1 - (W.dot(x) + kw['b'])**2),
-                    W, **kw)
+    return Hadamard(
+        (-1) * kw['sigma_f'] / np.sqrt(1 - (W.dot(x) + kw['b'])**2), W, **kw)
