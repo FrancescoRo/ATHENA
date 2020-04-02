@@ -1,36 +1,30 @@
-"""Cross validation for Active Subspaces and Non-linear Active Subspaces.
+"""Tuning procedure for NonlinearActiveSubspaces
 """
 from functools import partial
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import optimize
 import GPy
-from sklearn.model_selection import cross_val_score
+
 from .active import ActiveSubspaces
 from .nas import NonlinearActiveSubspaces
-from .tools import clock
-
-DEBUG = False
 
 
 def tune(ranges, plot=None, opt='brute', **kw):
-    """Optimize the parameters of the given distribution,
-       with respect to the RRMSE. The parameters are optimized with
-       logarithmic grid-search.
-    """
+    """doc"""
 
-    # List that collects the parameters evaluted in the optimization in the
-    # first component and the corresponding RRMSE in the second.
+    # List that collects the parameters evaluted in the optimization
     data = [[], []]
     n_params = len(ranges)
 
     # function to optimize
-    #fun = partial(Average_RRMSE, data=data, **kw)
-    fun = lambda params: Average_RRMSE(params, data, **kw)
+    estimator = Estimator(**kw)
+    fun = partial(Average_RRMSE, data=data, estimator=estimator)
 
-    # TODO: provisional design
+    print('#' * 80 + "\nTuning begins")
     if opt == 'brute':
-        res, val = optimize.brute(fun, ranges, finish=None, full_output=True)[:2]
+        res, val = optimize.brute(fun, ranges, finish=None,
+                                  full_output=True)[:2]
         res = 10**res
     elif opt == 'dual_annealing':
         opt_res = optimize.dual_annealing(fun,
@@ -38,107 +32,72 @@ def tune(ranges, plot=None, opt='brute', **kw):
                                           maxiter=30,
                                           no_local_search=True)
         res = 10**opt_res.x
-        val = opt_res.val
-    # plot to show dependance of RRMSE from the parameters
+        val = opt_res.fun
+
+    # plot to show dependance of NRMSE from the parameters
     if plot:
-        x = np.log10(np.array(data[0][1:]))
-        y = np.array(data[1][1:])
-
-        if n_params == 1:
-            plt.plot(x, y)
-            plt.grid(True, linestyle='dotted')
-            plt.xlabel("parameter")
-            plt.ylabel("RRMSE")
-
-        elif n_params == 2:
-            fig = plt.figure()
-            plt.tricontourf(x[:, 0], x[:, 1], y, 15)
-            plt.colorbar()
-            plt.xlabel("first_hyperparameter")
-            plt.ylabel("second_hyperparameter")
-
-        elif n_params == 3:
-            fig = plt.figure()
-            ax = fig.add_subplot(111,
-                                 projection='3d',
-                                 title="Best {}".format(res))
-            ax.scatter(x[:, 1], x[:, 2], y)
-        plt.show()
+        plot_tune_results(data, n_params, res)
 
     kw['feature_map'].set_tuned()
-
+    print('#' * 80 + "\nTuning is completed\n" + '#' * 80)
     return res, val
 
 
-@clock(activate=DEBUG, fmt='[{elapsed:0.8f}s] {name}\n')
-def Average_RRMSE(hyperparams, data, inputs, outputs, gradients, n_features,
-                  feature_map, weights, method, kernel, gp_dimension, folds):
-    """Function to optimize."""
-    if hyperparams:
-        hyperparams = 10**hyperparams
+def plot_tune_results(data, n_params, res):
+    """doc"""
+    x = np.log10(np.array(data[0][1:]))
+    y = np.array(data[1][1:])
 
+    if n_params == 1:
+        plt.plot(x, y)
+        plt.grid(True, linestyle='dotted')
+        plt.xlabel("parameter")
+        plt.ylabel("NRMSE")
+
+    elif n_params == 2:
+        fig = plt.figure()
+        plt.tricontourf(x[:, 0], x[:, 1], y, 15)
+        plt.colorbar()
+        plt.xlabel("first_hyperparameter")
+        plt.ylabel("second_hyperparameter")
+
+    elif n_params == 3:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d', title="Best {}".format(res))
+        ax.scatter(x[:, 1], x[:, 2], y)
+
+    plt.show()
+
+def Average_RRMSE(hyperparams, data, estimator):
+    """inputs, outputs, gradients, n_features,
+       feature_map, weights, method, kernel, gp_dimension, folds"""
+
+    hyperparams = 10**hyperparams
+
+    print('#' * 80)
     for it in range(1, 5):
-        print("Iteration with the same sampled #{}".format(it))
         #compute the projection matrix
-        feature_map.compute(hyperparams)
-
-        #set the estimator
-        GPR_NAS = Estimator('NAS', n_features, feature_map, weights, method,
-                            kernel, gp_dimension)
+        estimator.feature_map.compute(hyperparams)
 
         #compute the score with cross validation for the sampled projection matrix
-        mean, std = cross_validation(inputs, outputs, gradients, GPR_NAS,
-                                     folds)
+        mean, std = estimator.cross_validation()
 
-        feature_map.set_best(mean)
+        #save the best parameters
+        estimator.feature_map.set_best(mean)
         print("params {2} mean {0}, std {1}".format(mean, std, hyperparams))
 
     data[0].append(hyperparams)
-    data[1].append(feature_map.score)
+    data[1].append(estimator.feature_map.score)
 
     return mean
 
-
-def cross_validation(inputs=None,
-                     outputs=None,
-                     gradients=None,
-                     estimator=None,
-                     folds=5):
-    """n-th fold cross validation from sklearn."""
-
-    inputs = np.hstack((inputs, gradients))
-    scores = cross_val_score(estimator,
-                             inputs,
-                             outputs,
-                             cv=folds,
-                             scoring=scorer)
-    return scores.mean(), scores.std()
-
-
 class Estimator():
-    """
-    Estimator needed by sklearn cross-validation.
-    See sklearn.model_selection.cross_val_score man.
-
-    Attributes
-    ----------
-        sstype : string
-            defines subspace type to compute, 'AS' or 'NAS'
-        n_features : int
-            feature space dimension
-        pr_matrix : ndarray
-            nfeatures-by-m projection matrix onto feature space
-        sigma_f : float
-            hyperparameter of feature map
-        kernel : kernel object
-            kernel of the Gaussian process regression
-        gp_dimension : int
-            dimension of the Response surface built with Gaussian process
-            regression
-        plot : bool
-            switch for plotting the Gaussian process regression
-    """
+    """doc"""
     def __init__(self,
+                 inputs=None,
+                 outputs=None,
+                 gradients=None,
+                 folds=5,
                  sstype=None,
                  n_features=0,
                  feature_map=None,
@@ -147,8 +106,12 @@ class Estimator():
                  kernel=None,
                  gp_dimension=1,
                  plot=False,
-                 title=None):
+                 model=None):
 
+        self.inputs = inputs
+        self.outputs = outputs
+        self.gradients = gradients
+        self.folds = folds
         self.sstype = sstype
         self.n_features = n_features
         self.feature_map = feature_map
@@ -157,32 +120,31 @@ class Estimator():
         self.kernel = kernel
         self.gp_dimension = gp_dimension
         self.plot = plot
-        self.title = title
+        self.ss = None
+        self.gp = None
+        self.model = model
 
-    def set_params(self, **params):
-        pass
+    def cross_validation(self):
+        """doc"""
+        stacked = np.hstack(
+            (self.inputs, self.gradients, self.outputs.reshape(-1, 1)))
+        np.random.shuffle(stacked)
+        scores = np.zeros((self.folds))
 
-    def get_params(self, deep=True):
+        for i in range(self.folds):
+            splitted = np.array_split(stacked, self.folds)
+            validation = splitted[i]
+            del splitted[i]
+            training = np.vstack(splitted)
 
-        dic = {
-            'sstype': self.sstype,
-            'n_features': self.n_features,
-            'feature_map': self.feature_map,
-            'weights': self.weights,
-            'method': self.method,
-            'kernel': self.kernel,
-            'gp_dimension': self.gp_dimension,
-            'plot': self.plot,
-            'title': self.title,
-        }
+            self.fit(*self._process_inputs_gradients_outputs(training))
+            scores[i] = self.scorer(validation)
 
-        return dic
+        return scores.mean(), scores.std()
 
-    def fit(self, X, outputs):
+    def fit(self, inputs, gradients, outputs):
         """Uses Gaussian process regression to build the response surface.
            See sklearn.model_selection.cross_val_score man."""
-
-        inputs, gradients = process_inputs_gradients(X)
 
         if self.sstype == 'NAS':
             ss = NonlinearActiveSubspaces()
@@ -204,11 +166,12 @@ class Estimator():
         y = ss.forward(inputs)[0]
 
         if self.kernel is not None:
-            gp = GPR(y,
-                     outputs,
-                     kernel=self.kernel(input_dim=self.gp_dimension, ARD=True))
+            gp = self.gpr(y,
+                          outputs,
+                          kernel=self.kernel(input_dim=self.gp_dimension,
+                                             ARD=True))
         else:
-            gp = GPR(y, outputs)
+            gp = self.gpr(y, outputs)
 
         gp.optimize()
 
@@ -218,60 +181,69 @@ class Estimator():
         if self.plot is True:
             self.gp.plot()
 
-    def predict(self, X):
+    def predict(self, validation):
         """Predict method of cross-validation.
-           See sklearn.model_selection.cross_val_score man."""
+            See sklearn.model_selection.cross_val_score man."""
 
-        inputs = process_inputs_gradients(X)[0]
+        inputs = self._process_inputs_gradients_outputs(validation)[0]
         x_test = self.ss.forward(inputs)[0]
 
         y = self.gp.predict(x_test[:, :self.gp_dimension])[0].reshape(-1)
         return y
 
+    def scorer(self, validation):
+        """Score function of cross-validation.
+        See sklearn.model_selection.cross_val_score man."""
 
-def scorer(estimator, X, targets):
-    """Score function of cross-validation.
-       See sklearn.model_selection.cross_val_score man."""
+        y = self.predict(validation)
+        targets = self._process_inputs_gradients_outputs(validation)[2]
 
-    y = estimator.predict(X)
+        #Normalized Root Mean Square Error
+        # NRMSE = np.sqrt(np.sum((y-targets.reshape(-1))**2))/\
+        #         np.sqrt(np.sum((targets.reshape(-1)-targets.reshape(-1).mean())**2))
+        NRMSE = np.sqrt(np.sum((y-targets.reshape(-1))**2))
 
-    #Normalized Root Mean Square Error
-    NRMSE = np.sqrt(np.sum((y-targets.reshape(-1))**2))/\
-            np.sqrt(np.sum((targets.reshape(-1)-targets.reshape(-1).mean())**2))
+        lis = []
+        for i in range(targets.shape[0]):
+            if targets[i]-y[i]> 0.12:
+                lis.append(i)
+        print("INDEXES {}".format(lis))
 
-    if estimator.plot is True:
-        inputs, _ = process_inputs_gradients(X)
-        x_test, _ = estimator.ss.forward(inputs)
-        plt.scatter(x_test[:, :estimator.gp_dimension], targets, c=targets)
-        plt.show()
+        if self.plot is True:
+            inputs = self._process_inputs_gradients_outputs(validation)[0]
+            x_test = self.ss.forward(inputs)[0]
+            plt.scatter(x_test[:, :self.gp_dimension], targets, c=targets)
+            plt.show()
+            
+        return NRMSE
 
-    return NRMSE
+    @staticmethod
+    def _process_inputs_gradients_outputs(X):
+        double_m_plus_one = X.shape[1]
+        m = (double_m_plus_one - 1) // 2
+        inputs = X[:, :m]
+        gradients = X[:, m:2 * m]
+        outputs = X[:, -1].reshape(-1, 1)
+        return inputs, gradients, outputs
 
+    @staticmethod
+    def gpr(x, f, kernel=None, plot=False):
+        """Execute Gaussian processes regression for input data x and targets f.
+        Returns
+        -------
+        gp : gaussian process instance
+            gaussian process instance from the library GPy
+        """
+        m = x.shape[1]
 
-def process_inputs_gradients(X):
-    double_m = X.shape[1]
-    m = double_m // 2
-    inputs = X[:, :m]
-    gradients = X[:, m:]
-    return inputs, gradients
+        if kernel is None:
+            kernel = GPy.kern.RBF(input_dim=m, ARD=True)
 
-def GPR(x, f, kernel=None, plot=False):
-    """Execute Gaussian processes regression for input data x and targets f.
-    Returns
-    -------
-    gp : gaussian process instance
-        gaussian process instance from the library GPy
-    """
-    m = x.shape[1]
-    
-    if kernel is None:
-        kernel = GPy.kern.RBF(input_dim=m, ARD=True)
+        gp = GPy.models.GPRegression(x, f.reshape(-1, 1), kernel)
+        gp.optimize()
 
-    gp = GPy.models.GPRegression(x, f.reshape(-1, 1), kernel)
-    gp.optimize()
+        if plot:
+            gp.plot()
+            plt.show()
 
-    if plot:
-        gp.plot()
-        plt.show()
-
-    return gp
+        return gp

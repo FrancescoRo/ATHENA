@@ -5,36 +5,10 @@ import numpy as np
 from scipy.stats import cauchy, dirichlet
 
 
-class FeatureMap():
-    """Feature map
-
-    [description]
-    """
-    def __init__(self):
-        self._fmap = None
-        self._jacobian = None
-        self.n_features = None
-        self.input_dim = None
-
-    def compute(self,
-                fmap=None,
-                jacobian=None,
-                n_features=None,
-                input_dim=None,
-                **hyperparams):
-        """doc"""
-
-    def fmap(self, x):
-        """doc"""
-
-    def jacobian(self, x):
-        """doc"""
-
-
-class ProjectionMap(FeatureMap):
+class FeatureMap(object):
     """doc"""
-    def __init__(self, feature_map, feature_map_jac, distr, n_params,
-                 input_dim, n_features, **kw):
+    def __init__(self, feature_map, feature_map_jac, distr, n_params, input_dim,
+                 n_features, **kw):
         super().__init__()
         self.params = None
         self.matrix = None
@@ -53,7 +27,6 @@ class ProjectionMap(FeatureMap):
     def fmap(self, x):
         """doc"""
         if self.tuned:
-            print("CHECK MAP")
             return self._fmap(x,
                               self._best_matrix,
                               self._best_params,
@@ -72,7 +45,6 @@ class ProjectionMap(FeatureMap):
 
     def jacobian(self, x):
         if self.tuned:
-            print("CHECK JACOBIAN")
             return self._jacobian(x,
                                   self._best_matrix,
                                   self._best_params,
@@ -92,10 +64,12 @@ class ProjectionMap(FeatureMap):
     def compute(self, params):
         if self.tuned is False:
             self.params = params
-            self.matrix = self.set_projection_matrix(self.distr,
-                                                     self.input_dim,
+            self.matrix = self.set_projection_matrix(self.distr, self.input_dim,
                                                      self.n_features,
                                                      self.n_params, params)
+    
+    def set_params(self, **kw):
+        self.matrix = kw['matrix']
 
     def set_best(self, score):
         if self.score > score:
@@ -115,7 +89,7 @@ class ProjectionMap(FeatureMap):
            map. Several spectral measures can be chosen."""
 
         if distr == np.random.multivariate_normal:
-            pr_matrix = distr(np.zeros(m), params * np.diag(np.ones(m)),
+            pr_matrix = distr(np.zeros(m), np.diag(params),
                               (n_features))
         elif distr == np.random.normal:
             pr_matrix = distr(0, params[0], (n_features, m))
@@ -148,35 +122,12 @@ def Hadamard(M, W, **kw):  # (nfeatures, (nfeatures, m))
 
 def RFF_map(x, W, params, **kw):
     """doc"""
-    print(kw, W.shape, x.shape)
     return np.sqrt(
         2 / kw['n_features']) * kw['sigma_f'] * np.cos(W.dot(x) + kw['b'])
 
 
 def RFF_jac(x, W, params, **kw):
     """doc"""
-    print(kw)
     return Hadamard(
         np.sqrt(2 / kw['n_features']) * kw['sigma_f'] * (-1) *
         np.sin(W.dot(x) + kw['b']), W, **kw)
-
-
-def atan_map(x, W, params, **kw):
-    """doc"""
-    return kw['sigma_f'] * np.arctan(W.dot(x) + kw['b'])
-
-
-def atan_jac(x, W, params, **kw):
-    """doc"""
-    return Hadamard(kw['sigma_f'] / (1 + (W.dot(x) + kw['b'])**2), W, **kw)
-
-
-def asin_map(x, W, params, **kw):
-    """doc"""
-    return kw['sigma_f'] * np.arcsin(W.dot(x) + kw['b'])
-
-
-def asin_jac(x, W, params, **kw):
-    """doc"""
-    return Hadamard(
-        (-1) * kw['sigma_f'] / np.sqrt(1 - (W.dot(x) + kw['b'])**2), W, **kw)

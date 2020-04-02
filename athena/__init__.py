@@ -1,9 +1,7 @@
 """
 Athena init
 """
-__all__ = [
-    'active', 'nas', 'subspaces', 'utils', 'feature_map', 'tuning', 'tools'
-]
+__all__ = ['active', 'nas', 'subspaces', 'utils', 'feature_map', 'tuning']
 __project__ = 'ATHENA'
 __title__ = "athena"
 __author__ = "Marco Tezzele, Francesco Romor"
@@ -19,7 +17,5 @@ from .nas import NonlinearActiveSubspaces
 from .subspaces import Subspaces
 from .utils import (Normalizer, initialize_weights, linear_program_ineq,
                     local_linear_gradients, sort_eigpairs)
-from .tuning import (cross_validation, Estimator)
-from .feature_map import (FeatureMap, ProjectionMap)
-
-from .tools import clock
+from .tuning import (tune, Estimator)
+from .feature_map import (FeatureMap)

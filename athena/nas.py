@@ -5,9 +5,6 @@
 import numpy as np
 from .subspaces import Subspaces
 from .utils import (initialize_weights, sort_eigpairs, local_linear_gradients)
-from .tools import clock
-
-DEBUG = False
 
 
 class NonlinearActiveSubspaces(Subspaces):
@@ -23,11 +20,25 @@ class NonlinearActiveSubspaces(Subspaces):
         self.pseudo_gradients = None
 
     @staticmethod
-    @clock(activate=DEBUG)
-    def _build_decompose_cov_matrix(gradients=None, weights=None, method=None):
+    def _build_decompose_cov_matrix(pseudo_gradients=None,
+                                    weights=None,
+                                    method=None):
+        """
+        Computes the uncentered covariance matrix of the pseudo_gradients.
 
+        :param numpy.ndarray pseudo_gradients: array n_samples-by-n_features containing
+            the psuedo gradients.
+        :param numpy.ndarray weights: n_samples-by-1 weight vector, corresponds to numerical
+            quadrature rule used to estimate matrix whose eigenspaces define the active
+            subspace.
+        :param str method: the method used to compute the gradients.
+        :return: array n_features-by-n_features representing the uncentered covariance matrix;
+            array n_features containing the eigenvalues ordered decreasingly in magnitude;
+            array n_features-by-n_features the columns contain the ordered eigenvectors.
+        :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
+        """
         if method == 'exact' or method == 'local':
-            cov_matrix = gradients.T.dot(gradients * weights)
+            cov_matrix = pseudo_gradients.T.dot(pseudo_gradients * weights)
             evals, evects = sort_eigpairs(cov_matrix)
 
         return cov_matrix, evals, evects
@@ -56,21 +67,32 @@ class NonlinearActiveSubspaces(Subspaces):
         pass
 
     @staticmethod
-    @clock(activate=DEBUG)
     def _reparametrize(inputs=None, gradients=None, feature_map=None):
+        """
+        Computes the pseudo-gradients solving an overdetermined linear system.
 
-        M = inputs.shape[0]
-
+        :param numpy.ndarray inputs: array n_samples-by-n_params containing
+            the points in the original parameter space.
+        :param numpy.ndarray gradients: array n_samples-by-n_params containing
+            the gradient samples oriented as rows.
+        :param feature_map: feature map object.
+        :return: array n_samples-by-n_features containing
+            the psuedo gradients; array n_samples-by-n_features containing the
+            image of the inputs in the feature space.
+        :rtype: numpy.ndarray, numpy.ndarray
+        """
+        n_samples = inputs.shape[0]
+        
         # Initialize Jacobian for each input
         jacobian = np.array(
-            [feature_map.jacobian(inputs[i, :]) for i in range(M)])
+            [feature_map.jacobian(inputs[i, :]) for i in range(n_samples)])
         # Compute pseudo gradients
         pseudo_gradients = np.array([
             np.linalg.lstsq(jacobian[i, :, :].T, gradients[i, :].T,
-                            rcond=None)[0] for i in range(M)
+                            rcond=None)[0] for i in range(n_samples)
         ])
         # Compute features
-        features = np.array([feature_map.fmap(inputs[i, :]) for i in range(M)])
+        features = np.array([feature_map.fmap(inputs[i, :]) for i in range(n_samples)])
         return pseudo_gradients, features
 
     def compute(self,
@@ -82,21 +104,26 @@ class NonlinearActiveSubspaces(Subspaces):
                 nboot=None,
                 n_features=None,
                 feature_map=None):
-        """[summary]
-
-        Parameters
-        ----------
-        gradients : ndarray
-            M-by-m matrix containing the gradient samples oriented as rows
-        weights : ndarray
-            M-by-1 weight vector, corresponds to numerical quadrature rule
-            used to estimate matrix whose eigenspaces define the active
-            subspace.
-
+        """
+        [Description]
         Local linear models: This approach is related to the sufficient
         dimension reduction method known sometimes as the outer product
         of gradient method. See the 2001 paper 'Structure adaptive approach
         for dimension reduction' from Hristache, et al.
+
+        :param numpy.ndarray inputs: array n_samples-by-n_params containing
+            the points in the original parameter space.
+        :param numpy.ndarray outputs: array n_samples-by-1 containing
+            the values of the model function.
+        :param numpy.ndarray gradients: array n_samples-by-n_params containing
+            the gradient samples oriented as rows.
+        :param numpy.ndarray weights: n_samples-by-1 weight vector, corresponds to numerical
+            quadrature rule used to estimate matrix whose eigenspaces define the active
+            subspace.
+        :param str method: the method used to compute the gradients.
+        :param int nboot: number of bootstrap samples.
+        :param int n_features: dimension of the feature space.
+        :param feature_map: feature map object.
         """
         if method == 'exact':
             if gradients is None or inputs is None:
@@ -120,7 +147,7 @@ class NonlinearActiveSubspaces(Subspaces):
                 inputs, gradients, self.feature_map)
 
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
-                gradients=self.pseudo_gradients,
+                pseudo_gradients=self.pseudo_gradients,
                 weights=weights,
                 method=method)
 
@@ -157,7 +184,7 @@ class NonlinearActiveSubspaces(Subspaces):
                 inputs, gradients, self.feature_map)
 
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
-                gradients=self.pseudo_gradients,
+                pseudo_gradients=self.pseudo_gradients,
                 weights=weights,
                 method=method)
 

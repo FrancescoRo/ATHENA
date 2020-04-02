@@ -32,7 +32,7 @@ f = np.vstack((output, output2, output3))[:, 1].reshape(-1)  #Cd
 #Cl = np.vstack((output, output2, output3))[:, 1].reshape(-1, 1)
 
 #compute gradients with gaussian processes
-gp = GPR(x, f.reshape(-1, 1))
+gp = gpr(x, f.reshape(-1, 1))
 gp.optimize()
 df = gp.predict_jacobian(x)[0].reshape(M, m)
 
@@ -106,7 +106,7 @@ Distr = namedtuple('Distr', 'name n_params distr ranges kernel')
 range_1 = [(-3., 1., 0.2)]
 range_2 = [(-3., 1., 0.5) for i in range(2)]
 
-#kernels for GPR
+#kernels for gpr
 RBF = GPy.kern.RBF
 Lap_k = GPy.kern.RatQuad
 Cauchy = GPy.kern.OU
@@ -138,7 +138,7 @@ for it in lis:
 """
 NRMSE
 Lift
-AS GPR: mean 0.369388586553, std 0.049972351853
+AS gpr: mean 0.369388586553, std 0.049972351853
 Gaussian Laplace kernel: mean 0.350591700853, std 0.0496024930501
 Gaussian: mean 0.346241340481, std 0.0532948717831
 Laplace Laplace kernel: mean 0.350264726035, std 0.0477351009997
@@ -146,7 +146,7 @@ Laplace:mean 0.352505153603, std 0.0549001879225
 Beta Laplace kernel: mean 0.364776817943, std 0.0508608330725
 Beta: mean 0.366643855249, std 0.0450949779542
 Drag
-AS GPR: mean 0.256423606886, std 0.0369129873747
+AS gpr: mean 0.256423606886, std 0.0369129873747
 Gaussian Laplace kernel: mean 0.237710750742, std 0.035200825978
 Gaussian: mean 0.24526556745, std 0.0334901097299
 Laplace Laplace kernel: mean 0.234276087361, std 0.0305681990794
