@@ -21,7 +21,7 @@ class FeatureMap(object):
         self.kw = kw
         self._best_matrix = None
         self._best_params = None
-        self.score = 1
+        self.score = None
         self.tuned = False
 
     def fmap(self, x):
@@ -72,7 +72,11 @@ class FeatureMap(object):
         self.matrix = kw['matrix']
 
     def set_best(self, score):
-        if self.score > score:
+        if self.score is None:
+            self.score = score
+            self._best_matrix = self.matrix
+            self._best_params = self.params
+        elif self.score > score:
             self.score = score
             self._best_matrix = self.matrix
             self._best_params = self.params

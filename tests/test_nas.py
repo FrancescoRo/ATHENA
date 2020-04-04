@@ -50,6 +50,17 @@ class TestUtils(TestCase):
         ss = NonlinearActiveSubspaces()
         self.assertIsNone(ss.cov_matrix)
 
+    def test_init_n_features(self):
+        ss = NonlinearActiveSubspaces()
+        self.assertIsNone(ss.n_features)
+    
+    def test_init_feature_map(self):
+        ss = NonlinearActiveSubspaces()
+        self.assertIsNone(ss.feature_map)
+
+    def test_init_features(self):
+        ss = NonlinearActiveSubspaces()
+        self.assertIsNone
     def test_compute_01(self):
         ss = NonlinearActiveSubspaces()
         with self.assertRaises(ValueError):

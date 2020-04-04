@@ -82,7 +82,6 @@ class NonlinearActiveSubspaces(Subspaces):
         :rtype: numpy.ndarray, numpy.ndarray
         """
         n_samples = inputs.shape[0]
-        
         # Initialize Jacobian for each input
         jacobian = np.array(
             [feature_map.jacobian(inputs[i, :]) for i in range(n_samples)])

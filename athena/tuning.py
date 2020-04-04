@@ -203,16 +203,21 @@ class Estimator():
         #         np.sqrt(np.sum((targets.reshape(-1)-targets.reshape(-1).mean())**2))
         NRMSE = np.sqrt(np.sum((y-targets.reshape(-1))**2))
 
-        lis = []
-        for i in range(targets.shape[0]):
-            if targets[i]-y[i]> 0.12:
-                lis.append(i)
-        print("INDEXES {}".format(lis))
-
         if self.plot is True:
             inputs = self._process_inputs_gradients_outputs(validation)[0]
             x_test = self.ss.forward(inputs)[0]
             plt.scatter(x_test[:, :self.gp_dimension], targets, c=targets)
+            plt.grid()
+
+            if self.sstype == 'NAS':
+                plt.xlabel('Nonlinear Active variable ' + r'$W_1^T \phi(\mathbf{x})$',
+                        fontsize=14)
+                plt.ylabel(r'$f \, (\phi(\mathbf{x}))$', fontsize=14)
+            else:
+                plt.xlabel('Active variable ' + r'$W_1^T \mathbf{\mu}}$',
+                       fontsize=14)
+                plt.ylabel(r'$f \, (\mathbf{\mu})$', fontsize=14)
+
             plt.show()
             
         return NRMSE

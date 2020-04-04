@@ -90,6 +90,7 @@ params_opt, val_opt = tune(inputs=xx,
 print("Best params are {0}, corresponding NRMSE is {1}".format(
     params_opt, val_opt))
 print("Is feature map tuned? {}".format(fm.tuned))
+np.save("Projection_matrix", fm.get_best()[0])
 
 # NAS cross_validation
 GPR_NAS = Estimator(inputs=xx,
