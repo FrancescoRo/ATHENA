@@ -22,7 +22,9 @@ class NonlinearActiveSubspaces(Subspaces):
     @staticmethod
     def _build_decompose_cov_matrix(pseudo_gradients=None,
                                     weights=None,
-                                    method=None):
+                                    method=None,
+                                    metric=None,
+                                    input_cov=None):
         """
         Computes the uncentered covariance matrix of the pseudo_gradients.
 
@@ -38,8 +40,11 @@ class NonlinearActiveSubspaces(Subspaces):
         :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
         """
         if method == 'exact' or method == 'local':
-            cov_matrix = pseudo_gradients.T.dot(pseudo_gradients * weights)
-            evals, evects = sort_eigpairs(cov_matrix)
+            cov_matrix = np.einsum('mia, mjb, ab, m -> ij',
+                                   pseudo_gradients, pseudo_gradients, metric,
+                                   np.squeeze(weights))
+            #cov_matrix = pseudo_gradients.T.dot(pseudo_gradients * weights)
+            evals, evects = sort_eigpairs(cov_matrix, input_cov)
 
         return cov_matrix, evals, evects
 
@@ -87,11 +92,13 @@ class NonlinearActiveSubspaces(Subspaces):
             [feature_map.jacobian(inputs[i, :]) for i in range(n_samples)])
         # Compute pseudo gradients
         pseudo_gradients = np.array([
-            np.linalg.lstsq(jacobian[i, :, :].T, gradients[i, :].T,
+            np.linalg.lstsq(jacobian[i, :, :].T,
+                            gradients[i, :, :],
                             rcond=None)[0] for i in range(n_samples)
         ])
         # Compute features
-        features = np.array([feature_map.fmap(inputs[i, :]) for i in range(n_samples)])
+        features = np.array(
+            [feature_map.fmap(inputs[i, :]) for i in range(n_samples)])
         return pseudo_gradients, features
 
     def compute(self,
@@ -102,7 +109,9 @@ class NonlinearActiveSubspaces(Subspaces):
                 method='exact',
                 nboot=None,
                 n_features=None,
-                feature_map=None):
+                feature_map=None,
+                metric=None,
+                input_cov=None):
         """
         [Description]
         Local linear models: This approach is related to the sufficient
@@ -142,13 +151,24 @@ class NonlinearActiveSubspaces(Subspaces):
             else:
                 self.feature_map = feature_map
 
+            if metric is None:
+                self.metric = np.eye(outputs.shape[1])
+            else:
+                self.metric = metric
+
+            if input_cov:
+                self.input_cov = input_cov
+            else:
+                self.input_cov = np.identity(n_features)
+
             self.pseudo_gradients, self.features = self._reparametrize(
                 inputs, gradients, self.feature_map)
 
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
                 pseudo_gradients=self.pseudo_gradients,
                 weights=weights,
-                method=method)
+                method=method,
+                metric=self.metric, input_cov=self.input_cov)
 
             if nboot:
                 self._compute_bootstrap_ranges(self.psuedo_gradients,

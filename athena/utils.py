@@ -2,6 +2,7 @@
 """
 import numpy as np
 from scipy.optimize import linprog
+from scipy.linalg import eigh
 
 
 class Normalizer(object):
@@ -145,7 +146,7 @@ def local_linear_gradients(inputs, outputs, weights=None, n_neighbors=None):
     return gradients
 
 
-def sort_eigpairs(matrix):
+def sort_eigpairs(matrix, input_cov=None):
     """Compute eigenpairs and sort.
     
     :param numpy.ndarray matrix: matrix whose eigenpairs you want.
@@ -159,7 +160,10 @@ def sort_eigpairs(matrix):
         the eigenvectors so that the first component of each eigenvector is
         positive. This normalization is very helpful for the bootstrapping. 
     """
-    evals, evects = np.linalg.eigh(matrix)
+    if input_cov is None:
+        evals, evects = np.linalg.eigh(matrix)
+    else:
+        evals, evects = eigh(matrix, input_cov)
     evals = abs(evals)
     ind = np.argsort(evals)
     evals = evals[ind[::-1]]

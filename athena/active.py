@@ -18,10 +18,12 @@ class ActiveSubspaces(Subspaces):
                                     outputs=None,
                                     gradients=None,
                                     weights=None,
-                                    method=None):
+                                    method=None,
+                                    metric=None,
+                                    input_cov=None):
         if method == 'exact' or method == 'local':
-            cov_matrix = gradients.T.dot(gradients * weights)
-            evals, evects = sort_eigpairs(cov_matrix)
+            cov_matrix = np.einsum('mia, mjb, ab, m -> ij', gradients, gradients, metric, weights.reshape(-1,))
+            evals, evects = sort_eigpairs(cov_matrix, input_cov)
         return cov_matrix, evals, evects
 
     def compute(self,
@@ -30,7 +32,9 @@ class ActiveSubspaces(Subspaces):
                 gradients=None,
                 weights=None,
                 method='exact',
-                nboot=None):
+                nboot=None,
+                metric=None,
+                input_cov=None):
         """[summary]
 
         Parameters
@@ -53,8 +57,17 @@ class ActiveSubspaces(Subspaces):
             if weights is None:
                 # default weights is for Monte Carlo
                 weights = initialize_weights(gradients)
+            if metric is None:
+                self.metric = np.eye(outputs.shape[1])
+            else:
+                self.metric = metric
+            if input_cov:
+                self.input_cov = input_cov
+            else:
+                self.input_cov = np.identity(inputs.shape[1])
+
             self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
-                gradients=gradients, weights=weights, method=method)
+                gradients=gradients, weights=weights, method=method, metric=self.metric, input_cov=self.input_cov)
 
             if nboot is not None:
                 self._compute_bootstrap_ranges(gradients,

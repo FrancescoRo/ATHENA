@@ -18,6 +18,8 @@ class Subspaces(object):
         self.subs_br = None
         self.dim = None
         self.cov_matrix = None
+        self.input_cov = None
+        self.metric = None
 
     def _compute_bootstrap_ranges(self, gradients, weights, method, nboot=100):
         """Compute bootstrap ranges for eigenvalues and subspaces.

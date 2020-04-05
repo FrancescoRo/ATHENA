@@ -34,7 +34,7 @@ def tune(ranges, plot=None, opt='brute', **kw):
         res = 10**opt_res.x
         val = opt_res.fun
 
-    # plot to show dependance of NRMSE from the parameters
+    # plot to show dependance of error from the parameters
     if plot:
         plot_tune_results(data, n_params, res)
 
@@ -52,7 +52,7 @@ def plot_tune_results(data, n_params, res):
         plt.plot(x, y)
         plt.grid(True, linestyle='dotted')
         plt.xlabel("parameter")
-        plt.ylabel("NRMSE")
+        plt.ylabel("error")
 
     elif n_params == 2:
         fig = plt.figure()
@@ -126,19 +126,33 @@ class Estimator():
 
     def cross_validation(self):
         """doc"""
-        stacked = np.hstack(
-            (self.inputs, self.gradients, self.outputs.reshape(-1, 1)))
-        np.random.shuffle(stacked)
+        mask = np.arange(self.inputs.shape[0])
+        np.random.shuffle(mask)
         scores = np.zeros((self.folds))
+        
+        # stacked = np.stack(
+        #     (self.inputs, self.gradients, self.outputs), axis=0)
+        # np.random.shuffle(stacked)
+        # scores = np.zeros((self.folds))
 
         for i in range(self.folds):
-            splitted = np.array_split(stacked, self.folds)
-            validation = splitted[i]
-            del splitted[i]
-            training = np.vstack(splitted)
+            s_mask = np.array_split(mask, self.folds)
+            v_mask = s_mask[i]
+            validation = (self.inputs[v_mask, :], self.gradients[v_mask, :, :], self.outputs[v_mask, :])
+            del s_mask[i]
+            t_mask = np.concatenate(s_mask)
+            training = (self.inputs[t_mask, :], self.gradients[t_mask, :, :], self.outputs[t_mask, :])
 
-            self.fit(*self._process_inputs_gradients_outputs(training))
-            scores[i] = self.scorer(validation)
+            # splitted = np.array_split(stacked, self.folds)
+            # validation = splitted[i]
+            # del splitted[i]
+            # training = np.vstack(splitted)
+
+            self.fit(*training)
+            scores[i] = self.scorer(validation[0], validation[2])
+
+            # self.fit(*self._process_inputs_gradients_outputs(training))
+            # scores[i] = self.scorer(validation)
 
         return scores.mean(), scores.std()
 
@@ -181,32 +195,33 @@ class Estimator():
         if self.plot is True:
             self.gp.plot()
 
-    def predict(self, validation):
+    def predict(self, inputs):
         """Predict method of cross-validation.
             See sklearn.model_selection.cross_val_score man."""
 
-        inputs = self._process_inputs_gradients_outputs(validation)[0]
+        # inputs = self._process_inputs_gradients_outputs(validation)[0]
         x_test = self.ss.forward(inputs)[0]
 
-        y = self.gp.predict(x_test[:, :self.gp_dimension])[0].reshape(-1)
+        y = self.gp.predict(x_test[:, :self.gp_dimension])[0]
         return y
 
-    def scorer(self, validation):
+    def scorer(self, inputs, targets):
         """Score function of cross-validation.
         See sklearn.model_selection.cross_val_score man."""
 
-        y = self.predict(validation)
-        targets = self._process_inputs_gradients_outputs(validation)[2]
+        y = self.predict(inputs)
+        # targets = self._process_inputs_gradients_outputs(validation)[2]
 
         #Normalized Root Mean Square Error
-        # NRMSE = np.sqrt(np.sum((y-targets.reshape(-1))**2))/\
+        # error = np.sqrt(np.sum((y-targets.reshape(-1))**2))/\
         #         np.sqrt(np.sum((targets.reshape(-1)-targets.reshape(-1).mean())**2))
-        NRMSE = np.sqrt(np.sum((y-targets.reshape(-1))**2))
+        error = np.sqrt(np.sum((y-targets)**2))
 
         if self.plot is True:
-            inputs = self._process_inputs_gradients_outputs(validation)[0]
+            # inputs = self._process_inputs_gradients_outputs(validation)[0]
             x_test = self.ss.forward(inputs)[0]
-            plt.scatter(x_test[:, :self.gp_dimension], targets, c=targets)
+            for i in range(targets.shape[1]):
+                plt.scatter(x_test[:, :self.gp_dimension], targets[:, i], c=targets[:, i])
             plt.grid()
 
             if self.sstype == 'NAS':
@@ -220,16 +235,16 @@ class Estimator():
 
             plt.show()
             
-        return NRMSE
+        return error
 
-    @staticmethod
-    def _process_inputs_gradients_outputs(X):
-        double_m_plus_one = X.shape[1]
-        m = (double_m_plus_one - 1) // 2
-        inputs = X[:, :m]
-        gradients = X[:, m:2 * m]
-        outputs = X[:, -1].reshape(-1, 1)
-        return inputs, gradients, outputs
+    # @staticmethod
+    # def _process_inputs_gradients_outputs(X):
+    #     double_m_plus_one = X.shape[1]
+    #     m = (double_m_plus_one - 1) // 2
+    #     inputs = X[:, :m]
+    #     gradients = X[:, m:2 * m]
+    #     outputs = X[:, -1].reshape(-1, 1)
+    #     return inputs, gradients, outputs
 
     @staticmethod
     def gpr(x, f, kernel=None, plot=False):
@@ -244,7 +259,7 @@ class Estimator():
         if kernel is None:
             kernel = GPy.kern.RBF(input_dim=m, ARD=True)
 
-        gp = GPy.models.GPRegression(x, f.reshape(-1, 1), kernel)
+        gp = GPy.models.GPRegression(x, f, kernel)
         gp.optimize()
 
         if plot:
