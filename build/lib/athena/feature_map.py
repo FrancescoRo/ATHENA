@@ -98,9 +98,7 @@ class FeatureMap(object):
            map. Several spectral measures can be chosen."""
 
         if distr == "multivariate_normal":
-            pr_matrix = np.random.multivariate_normal(np.zeros(m),
-                                                      np.diag(params),
-                                                      (n_features))
+            pr_matrix = np.random.multivariate_normal(np.zeros(m), np.diag(params), (n_features))
         elif distr == "normal":
             pr_matrix = np.random.normal(0, params[0], (n_features, m))
         elif distr == "dirichlet":
@@ -118,6 +116,11 @@ class FeatureMap(object):
             pr_matrix = np.random.beta(params[0], params[1], (n_features, m))
         elif distr == 'dirichlet':
             pr_matrix = dirichlet.rvs(params, size=n_features)
+        else:
+            pr_matrix = distr(params,
+                              m=m,
+                              n_features=n_features,
+                              n_params=n_params)
 
         return pr_matrix
 
@@ -126,15 +129,63 @@ def Hadamard(M, W):  # (nfeatures, (nfeatures, m))
     """doc"""
     return M.reshape(-1, 1) * W
 
-
 def RFF_map(x, W, params, **kw):
     """doc"""
     return np.sqrt(
         4 / kw['n_features']) * kw['sigma_f'] * np.cos(np.dot(W, x) + params)
-
 
 def RFF_jac(x, W, params, **kw):
     """doc"""
     return Hadamard(
         np.sqrt(2 / kw['n_features']) * kw['sigma_f'] * (-1) *
         np.sin(np.dot(W, x) + params), W)
+
+def RFFL_map(x, W, params, **kw):
+    """doc"""
+    return np.sqrt(
+        4 / kw['n_features']) * kw['sigma_f'] * np.tanh(np.dot(W, (np.log(np.abs(x))/np.abs(x))*x) + params)
+
+def RFFL_jac(x, W, params, **kw):
+    """doc"""
+    return Hadamard(
+        np.sqrt(2 / kw['n_features']) * kw['sigma_f'] * (-1) *
+        (1-np.tanh(np.dot(W, x) + params)), W*(np.sign(x)*(1-np.log(np.abs(x)))/np.abs(x)**2))
+
+
+# def RFF_map(x, W, params, **kw):
+#     """doc"""
+#     m = W.shape[1]
+#     params = params.reshape(-1, 1)
+#     return np.sqrt(2 / kw['n_features']) * kw['sigma_f'] * np.cos(
+#         np.dot(W[m:, :],
+#                np.maximum(np.zeros(m),
+#                           np.dot(W[:m, :], x) + params[:m, 0])) +
+#         params[m:, 0])
+
+# def RFF_jac(x, W, params, **kw):
+#     """doc"""
+#     m = W.shape[1]
+#     params = params.reshape(-1, 1)
+    # print(params.shape, np.dot(W[:m, :], x).shape,
+    #     (np.dot(W[:m, :], x) + params[:m, 0]).shape,
+    #     np.maximum(np.zeros(m),
+    #                np.dot(W[:m, :], x) + params[:m, 0]).shape,
+    #     np.dot(W[m:, :],
+    #            np.maximum(np.zeros(m),
+    #                       np.dot(W[:m, :], x) + params[:m, 0])).shape,
+    #     np.sin(
+    #         np.dot(
+    #             W[m:, :],
+    #             np.maximum(np.zeros(m),
+    #                        np.dot(W[:m, :], x) + params[:m, 0])) +
+    #         params[m:, 0]).shape)
+
+    # return np.dot(
+    #     Hadamard(
+    #         np.sqrt(2 / kw['n_features']) * kw['sigma_f'] * (-1) * np.sin(
+    #             np.dot(
+    #                 W[m:, :],
+    #                 np.maximum(np.zeros(m),
+    #                            np.dot(W[:m, :], x) + params[:m, 0])) +
+    #             params[m:, 0]), W[m:, :]),
+    #     ((np.dot(W[:m, :], x) + params[:m, 0]) > 0).reshape(-1, 1)* W[:m, :])

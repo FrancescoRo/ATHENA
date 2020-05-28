@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 18})
 plt.rc('text', usetex=True)
 
-
 class Subspaces(object):
     """Active Subspaces base class
 
@@ -46,17 +45,15 @@ class Subspaces(object):
         sub_dist = np.zeros((n_pars - 1, nboot))
 
         for i in range(nboot):
-            gradients0, weights0 = self._bootstrap_replicate(
-                gradients, weights)
+            gradients0, weights0 = self._bootstrap_replicate(gradients, weights)
             __, e0, W0 = self._build_decompose_cov_matrix(gradients=gradients0,
                                                           weights=weights0,
                                                           method=method)
             e_boot[:, i] = e0.reshape((n_pars, ))
             for j in range(n_pars - 1):
-                sub_dist[j,
-                         i] = np.linalg.norm(np.dot(self.evects[:, :j + 1].T,
-                                                    W0[:, j + 1:]),
-                                             ord=2)
+                sub_dist[j, i] = np.linalg.norm(np.dot(self.evects[:, :j + 1].T,
+                                                       W0[:, j + 1:]),
+                                                ord=2)
 
         # bootstrap ranges for the eigenvalues
         self.evals_br = np.hstack((np.amin(e_boot, axis=1).reshape(
@@ -231,12 +228,12 @@ class Subspaces(object):
         fig, axes = plt.subplots(n_evects, 1, figsize=figsize)
         fig.suptitle(title)
 
-        if n_evects == 1:
+        if n_evects==1:
             axes.plot(range(1, m + 1),
-                      self.evects[:m + 1, 0],
-                      'ko-',
-                      markersize=8,
-                      linewidth=2)
+                         self.evects[:m + 1, 0],
+                         'ko-',
+                         markersize=8,
+                         linewidth=2)
 
             if labels is not '':
                 axes.set_xticks(range(1, m + 1))
@@ -252,10 +249,10 @@ class Subspaces(object):
         else:
             for i in range(n_evects):
                 axes[i].plot(range(1, m + 1),
-                             self.evects[:m + 1, i],
-                             'ko-',
-                             markersize=8,
-                             linewidth=2)
+                            self.evects[:m + 1, i],
+                            'ko-',
+                            markersize=8,
+                            linewidth=2)
 
                 if labels is not '':
                     axes[i].set_xticks(range(1, m + 1))

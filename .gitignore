@@ -6,3 +6,13 @@
 pydmd\.egg-info/
 
 tutorials/\.ipynb_checkpoints/
+
+.vscode/settings.json
+
+athena.egg-info/SOURCES.txt
+
+dist/athena-0.0.1-py3.6.egg
+
+dist/athena-0.0.1-py3.8.egg
+
+workspace_code.code-workspace

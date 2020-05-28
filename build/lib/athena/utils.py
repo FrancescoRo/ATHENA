@@ -146,7 +146,7 @@ def local_linear_gradients(inputs, outputs, weights=None, n_neighbors=None):
     return gradients
 
 
-def sort_eigpairs(matrix):
+def sort_eigpairs(matrix, input_cov=None):
     """Compute eigenpairs and sort.
     
     :param numpy.ndarray matrix: matrix whose eigenpairs you want.
@@ -160,6 +160,11 @@ def sort_eigpairs(matrix):
         the eigenvectors so that the first component of each eigenvector is
         positive. This normalization is very helpful for the bootstrapping. 
     """
+    # if input_cov is None:
+    #     evals, evects = np.linalg.eigh(matrix)
+    # else:
+    #     print("compute generalized eigenvalue problem")
+    #     evals, evects = eig(matrix, input_cov, right=True)
     evals, evects = np.linalg.eigh(matrix)
     evals = abs(evals)
     ind = np.argsort(evals)

@@ -10,7 +10,6 @@ from athena.feature_map import FeatureMap, RFF_map, RFF_jac
 from athena.tuning import tune, Estimator
 from radial_functions import radial, radial_grad, sin, dsin
 
-np.random.seed(42)
 #Global parameters
 M = 800
 m = 2
@@ -34,15 +33,15 @@ normalizer = Normalizer(lb, ub)
 xx = normalizer.normalize(XX)
 
 #output values (f) and gradients (df)
-f = radial(sin, xx, normalizer).reshape(-1, 1)
-df = radial_grad(dsin, xx, normalizer).reshape(M, 1, m)
+f = radial(sin, xx, normalizer)
+df = radial_grad(dsin, xx, normalizer)
 
 #AS
-# SS = ActiveSubspaces()
-# SS.compute(gradients=df, method='exact')
-# SS.partition(2)
-# SS.plot_eigenvalues()
-# SS.plot_sufficient_summary(xx, f)
+SS = ActiveSubspaces()
+SS.compute(gradients=df, method='exact')
+SS.partition(2)
+SS.plot_eigenvalues()
+SS.plot_sufficient_summary(xx, f)
 
 # AS cross validation
 GPR_AS = Estimator(sstype='AS',
@@ -92,19 +91,6 @@ print("Best params are {0}, corresponding NRMSE is {1}".format(
     params_opt, val_opt))
 print("Is feature map tuned? {}".format(fm.tuned))
 np.save("Projection_matrix", fm.get_best()[0])
-
-W = np.load("Projection_matrix.npy", allow_pickle=True)
-b = np.random.uniform(0, 2 * np.pi, D)
-n_params = m
-fm = FeatureMap(RFF_map,
-                RFF_jac,
-                distr=np.random.multivariate_normal,
-                n_params=n_params,
-                input_dim=m,
-                n_features=D,
-                sigma_f=f.var(),
-                b=b)
-fm.matrix = W
 
 # NAS cross_validation
 GPR_NAS = Estimator(inputs=xx,

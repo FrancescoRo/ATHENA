@@ -5,6 +5,7 @@
 import numpy as np
 from .subspaces import Subspaces
 from .utils import (initialize_weights, sort_eigpairs, local_linear_gradients)
+import matplotlib.pyplot as plt
 
 
 class NonlinearActiveSubspaces(Subspaces):
@@ -23,8 +24,7 @@ class NonlinearActiveSubspaces(Subspaces):
     def _build_decompose_cov_matrix(pseudo_gradients=None,
                                     weights=None,
                                     method=None,
-                                    metric=None,
-                                    input_cov=None):
+                                    metric=None):
         """
         Computes the uncentered covariance matrix of the pseudo_gradients.
 
@@ -40,13 +40,23 @@ class NonlinearActiveSubspaces(Subspaces):
         :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
         """
         if method == 'exact' or method == 'local':
-            cov_matrix = np.einsum('mia, mjb, ab, m -> ij',
-                                   pseudo_gradients, pseudo_gradients, metric,
-                                   np.squeeze(weights))
-            #cov_matrix = pseudo_gradients.T.dot(pseudo_gradients * weights)
-            evals, evects = sort_eigpairs(cov_matrix, input_cov)
-
-        return cov_matrix, evals, evects
+            if metric:
+                cov_matrix = np.array(
+                    np.sum([
+                        weights[i, 0] *
+                        np.dot(pseudo_gradients[i, :, :].T,
+                               np.dot(metric, pseudo_gradients[i, :, :]))
+                        for i in range(pseudo_gradients.shape[0])
+                    ],
+                           axis=0))
+                evals, evects = sort_eigpairs(cov_matrix)
+                return evals, evects
+            else:
+                X = np.squeeze(pseudo_gradients *
+                               np.sqrt(weights).reshape(-1, 1, 1))
+                _, singular, evects = np.linalg.svd(X, full_matrices=False)
+                evals = singular**2
+                return evals, evects.T
 
     def forward(self, inputs):
         """
@@ -90,12 +100,15 @@ class NonlinearActiveSubspaces(Subspaces):
         # Initialize Jacobian for each input
         jacobian = np.array(
             [feature_map.jacobian(inputs[i, :]) for i in range(n_samples)])
+
         # Compute pseudo gradients
         pseudo_gradients = np.array([
             np.linalg.lstsq(jacobian[i, :, :].T,
-                            gradients[i, :, :],
-                            rcond=None)[0] for i in range(n_samples)
+                            gradients[i, :, :].T,
+                            rcond=None)[0].T for i in range(n_samples)
         ])
+        # pseudo_gradients = np.array([np.dot(gradients[i, :, :], np.linalg.pinv(jacobian[i, :, :])) for i in range(n_samples)])
+
         # Compute features
         features = np.array(
             [feature_map.fmap(inputs[i, :]) for i in range(n_samples)])
@@ -110,8 +123,7 @@ class NonlinearActiveSubspaces(Subspaces):
                 nboot=None,
                 n_features=None,
                 feature_map=None,
-                metric=None,
-                input_cov=None):
+                metric=None):
         """
         [Description]
         Local linear models: This approach is related to the sufficient
@@ -151,24 +163,14 @@ class NonlinearActiveSubspaces(Subspaces):
             else:
                 self.feature_map = feature_map
 
-            if metric is None:
-                self.metric = np.eye(outputs.shape[1])
-            else:
-                self.metric = metric
-
-            if input_cov:
-                self.input_cov = input_cov
-            else:
-                self.input_cov = np.identity(n_features)
-
             self.pseudo_gradients, self.features = self._reparametrize(
                 inputs, gradients, self.feature_map)
 
-            self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
+            self.evals, self.evects = self._build_decompose_cov_matrix(
                 pseudo_gradients=self.pseudo_gradients,
                 weights=weights,
                 method=method,
-                metric=self.metric, input_cov=self.input_cov)
+                metric=metric)
 
             if nboot:
                 self._compute_bootstrap_ranges(self.psuedo_gradients,
@@ -202,13 +204,67 @@ class NonlinearActiveSubspaces(Subspaces):
             self.pseudo_gradients, self.features = self._reparametrize(
                 inputs, gradients, self.feature_map)
 
-            self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
+            self.evals, self.evects = self._build_decompose_cov_matrix(
                 pseudo_gradients=self.pseudo_gradients,
                 weights=weights,
-                method=method)
+                method=method,
+                metric=metric)
 
             if nboot:
                 self._compute_bootstrap_ranges(self.psuedo_gradients,
                                                weights,
                                                method=method,
                                                nboot=nboot)
+
+    def plot_eigenvalues(self,
+                         num=10,
+                         filename=None,
+                         figsize=(8, 8),
+                         title=''):
+        """
+        Plot the eigenvalues.
+        
+        :param str filename: if specified, the plot is saved at `filename`.
+        :param tuple(int,int) figsize: tuple in inches defining the figure
+            size. Default is (8, 8).
+        :param str title: title of the plot.
+        :raises: ValueError
+
+        .. warning::
+            `self.compute` has to be called in advance.
+        """
+        if self.evals is None:
+            raise ValueError('The eigenvalues have not been computed.'
+                             'You have to perform the compute method.')
+        n_pars = num
+        plt.figure(figsize=figsize)
+        plt.title(title)
+        plt.semilogy(range(1, n_pars + 1),
+                     self.evals[:n_pars],
+                     'ko-',
+                     markersize=8,
+                     linewidth=2)
+        plt.xticks(range(1, n_pars + 1))
+        plt.xlabel('Index')
+        plt.ylabel('Eigenvalues')
+        plt.grid(linestyle='dotted')
+        if self.evals_br is None:
+            plt.axis([
+                0, n_pars + 1, 0.1 * np.amin(self.evals),
+                10 * np.amax(self.evals)
+            ])
+        else:
+            plt.fill_between(range(1, n_pars + 1),
+                             self.evals_br[:, 0],
+                             self.evals_br[:, 1],
+                             facecolor='0.7',
+                             interpolate=True)
+            plt.axis([
+                0, n_pars + 1, 0.1 * np.amin(self.evals_br[:, 0]),
+                10 * np.amax(self.evals_br[:, 1])
+            ])
+
+        if filename:
+            plt.savefig(filename)
+        else:
+            plt.show()

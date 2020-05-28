@@ -19,16 +19,16 @@ class ActiveSubspaces(Subspaces):
                                     gradients=None,
                                     weights=None,
                                     method=None,
-                                    metric=None):
+                                    metric=None,
+                                    input_cov=None):
         if method == 'exact' or method == 'local':
-            if metric:
-                cov_matrix = np.array(np.sum([weights[i, 0]*gradients[i, :, :].T.dot(metric.dot(gradients[i,:,:])) for i in range(gradients.shape[0])], axis=0))
-                return sort_eigpairs(cov_matrix)
-            else:
-                X = np.squeeze(gradients * np.sqrt(weights).reshape(-1, 1, 1))
-                _, singular, evects = np.linalg.svd(X, full_matrices=False)
-                evals = singular**2
-                return evals, evects.T
+            # gradients_ = np.einsum('ipk, pq, iqk -> ik', gradients, metric, gradients)
+            cov_matrix = np.array(np.sum([weights[i, 0]*gradients[i, :, :].T.dot(metric.dot(gradients[i,:,:])) for i in range(gradients.shape[0])], axis=0))
+            return sort_eigpairs(cov_matrix, input_cov)
+        #     X = np.squeeze(gradients * np.sqrt(weights).reshape(-1, 1, 1))
+        #     _, singular, evects = np.linalg.svd(X, full_matrices=False)
+        #     evals = singular**2
+        # return evals, evects.T
 
     def compute(self,
                 inputs=None,
@@ -37,7 +37,8 @@ class ActiveSubspaces(Subspaces):
                 weights=None,
                 method='exact',
                 nboot=None,
-                metric=None):
+                metric=None,
+                input_cov=None):
         """[summary]
 
         Parameters
@@ -60,9 +61,17 @@ class ActiveSubspaces(Subspaces):
             if weights is None:
                 # default weights is for Monte Carlo
                 weights = initialize_weights(gradients)
+            if metric is None:
+                self.metric = np.eye(outputs.shape[1])
+            else:
+                self.metric = metric
+            if input_cov is None:
+                self.input_cov = np.identity(inputs.shape[1])
+            else:
+                self.input_cov = input_cov
 
             self.evals, self.evects = self._build_decompose_cov_matrix(
-                gradients=gradients, weights=weights, method=method, metric=metric)
+                gradients=gradients, weights=weights, method=method, metric=self.metric, input_cov=self.input_cov)
 
             if nboot is not None:
                 self._compute_bootstrap_ranges(gradients,
@@ -81,9 +90,16 @@ class ActiveSubspaces(Subspaces):
                 # use the new gradients to compute the weights,
                 # otherwise dimension mismatch accours.
                 weights = initialize_weights(gradients)
-        
-            self.evals, self.evects = self._build_decompose_cov_matrix(
-                gradients=gradients, weights=weights, method=method, metric=metric)
+            if metric is None:
+                self.metric = np.eye(outputs.shape[1])
+            else:
+                self.metric = metric
+            if input_cov is None:
+                self.input_cov = np.identity(inputs.shape[1])
+            else:
+                self.input_cov = input_cov
+            self.cov_matrix, self.evals, self.evects = self._build_decompose_cov_matrix(
+                gradients=gradients, weights=weights, method=method, metric=self.metric, input_cov=self.input_cov)
 
             if nboot is not None:
                 self._compute_bootstrap_ranges(gradients,
